@@ -1,5 +1,5 @@
 ##  Begin Local Imports
-import rsaenv
+import model.rsaenv as rsaenv
 
 ##  Begin Standard Imports
 import gymnasium as gym
