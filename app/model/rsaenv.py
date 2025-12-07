@@ -38,7 +38,7 @@ class RSAEnv(gym.Env):
                 f"LINK-{ia}" : spaces.MultiBinary(self.link_capacity)
             })
         obs_tmp_dict.update({
-            # ####### THIS
+            # ####### Figure out how to instantiate
             "REQUEST" : spaces.Discrete()
         })
 
