@@ -44,3 +44,27 @@ def generate_sample_graph():
     for u, v in links:
         G.add_edge(u, v, state=LinkState(u, v))
     return G
+
+ROUTING_PATHS = {
+    (0, 3): [
+        [0, 1, 2, 3],
+        [0, 8, 7, 6, 3]
+    ],
+    (0, 4): [
+        [0, 1, 5, 4],
+        [0, 8, 7, 6, 3, 4]
+    ],
+    (7, 3): [
+        [7, 1, 2, 3],
+        [7, 6, 3]
+    ],
+    (7, 4): [
+        [7, 1, 5, 4],
+        [7, 6, 3, 4]
+    ]
+}
+
+POSSIBLE_ACTIONS = []
+for src_dst_tuple, routing_paths_list in ROUTING_PATHS.items():
+    for path in routing_paths_list:
+        POSSIBLE_ACTIONS.append({"src_dst": src_dst_tuple, "path": path})

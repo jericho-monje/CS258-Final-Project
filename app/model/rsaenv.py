@@ -4,6 +4,7 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 from enum import IntEnum
+from nwutil import generate_sample_graph, ROUTING_PATHS, POSSIBLE_ACTIONS
 
 CONST_MODEL_SHAPE:int = 4
 
@@ -32,6 +33,9 @@ class RSAEnv(gym.Env):
         self.max_ht:int = max_ht
         self.round:int = 0
 
+        # Generate Graph
+        self.graph = generate_sample_graph()
+
         obs_tmp_dict:dict = {}
         for ia in range(num_links):
             obs_tmp_dict.update({
@@ -39,14 +43,19 @@ class RSAEnv(gym.Env):
             })
         obs_tmp_dict.update({
             # ####### Figure out how to instantiate
-            "REQUEST" : spaces.Discrete()
+            "REQUEST" : spaces.Dict({
+                "source": spaces.Discrete(self.num_links),
+                "destination": spaces.Discrete(self.num_links),
+                "holding_time": spaces.Discrete(self.max_ht)
+            })
         })
 
         self.observation_space:spaces.Box = spaces.Dict(obs_tmp_dict)
 
         self._linkstates:list[np.ndarray] = RSAEnv.make_blank_linkstates(self.num_links, self.link_capacity)
 
-        self.action_space = spaces.Discrete(2)
+        # Set action space to length of possible actions
+        self.action_space = spaces.Discrete(len(POSSIBLE_ACTIONS))
 
         self.req_file:str = self.req_file
         self.req_loader = csv_lineReader(self.req_file)
@@ -60,7 +69,12 @@ class RSAEnv(gym.Env):
             })
 
         result.update({
-            "req" : self._req
+            "REQUEST": spaces.Dict({
+                "source": self._req["source"],
+                "destination": self._req["destination"],
+                "holding_time": self._req["holding_time"]
+            })
+            #"req" : self._req
         })
 
         return result
@@ -94,8 +108,10 @@ class RSAEnv(gym.Env):
     def step(self, action:int):
         self._clock_forward()
         truncated:bool = (self.round == self.max_ht - 1)
-        assert action in range(self.num_links), "Invalid action"
+        assert action in range(self.action_space.n)
+        #assert action in range(self.num_links), "Invalid action"
 
+        # Change in action might affect this find_available_color()
         available_color = self._find_available_color(self._linkstates[action])
         if available_color == -1:
             reward = -1
