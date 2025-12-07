@@ -24,7 +24,8 @@ class configValues:
                 "DEBUG" : "1",
                 "SEED" : "123",
                 "N_EPISODES" : "1000",
-                "MODEL_POLICY" : "MultiInputPolicy"
+                "MODEL_POLICY" : "MultiInputPolicy",
+                "MAX_HT" : "100"
             }
         }
 

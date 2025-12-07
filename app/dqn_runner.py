@@ -61,7 +61,7 @@ def generate_and_train_rsadqn(seed:int, _debug:int=0) -> None:
     env.reset()
 
     ##  Train model
-    total_timesteps:int = 100 * int(resource.config_values.get_option("N_EPISODES"))
+    total_timesteps:int = int(resource.config_values.get_option("MAX_HT")) * int(resource.config_values.get_option("N_EPISODES"))
     if _debug:
         print(f"Training model...")
         print(f"\t[Timesteps]:: {str(total_timesteps)}")
@@ -104,6 +104,7 @@ def test_rsadqn(seed:int, _debug:int=0) -> None:
         if done:
             print(f"Model running complete!")
 
+    ##  
     if _debug:
         print(f"Closing test environment now...")
     test_env.close()
