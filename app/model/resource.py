@@ -8,7 +8,12 @@ CONST_ROOT_DIR:Path = Path.absolute(Path(sys.argv[0]).parent)
 # CONST_OUTPUT_DIR:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r".\output"))
 # CONST_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 CONST_MODEL_DIR:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r".\model"))
-TMP_REQ_FILE:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\train\requests-0.csv"))
+
+CONST_EVAL_DATA_DIR:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\eval"))
+CONST_TRAIN_DATA_DIR:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\train"))
+
+TMP_TRAIN_FILE:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\train\requests-0.csv"))
+TMP_EVAL_FILE:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\eval\requests-0.csv"))
 
 CONST_DQN_MODEL_PATH:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r".\dqn_rsaenv_model"))
 

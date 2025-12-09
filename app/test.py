@@ -26,8 +26,10 @@ def test_csvLineReader():
 def test_nxGraphs():
     t0 = nwutil.generate_sample_graph()
     # print(t0.edges[1,2])
-    # for ia in t0.edges:
-    #     print(ia)
+    idx:int = 0
+    for ia in t0.edges:
+        print(f"{idx}::{ia}")
+        idx += 1
     print(list(ia for ia in t0.adjacency()))
     print(len(t0.edges))
 

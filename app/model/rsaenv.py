@@ -42,7 +42,8 @@ class RSAEnv(gym.Env):
         obs_tmp_dict:dict = {}
         for ia in range(self.num_links):
             obs_tmp_dict.update({
-                f"LINK-{ia}" : spaces.MultiBinary(self.link_capacity)
+                f"LINK-{ia}" : spaces.MultiBinary(self.link_capacity)                
+                # f"LINK-{ia}" : spaces.MultiDiscrete(np.ndarray([0] * self.link_capacity, dtype=np.int32))
             })
         obs_tmp_dict.update({
             "source": spaces.Discrete(self.num_nodes),
@@ -52,7 +53,7 @@ class RSAEnv(gym.Env):
 
         self.observation_space:spaces.Box = spaces.Dict(obs_tmp_dict)
 
-        self._linkstates:list[np.ndarray] = RSAEnv.make_blank_linkstates(self.num_links, self.link_capacity)
+        self._linkstates:list[np.ndarray] = RSAEnv.make_blank_linkstates(self.topology)
 
         # Set action space to length of possible actions
         self.action_space = spaces.Discrete(len(nwutil.POSSIBLE_ACTIONS))
@@ -79,16 +80,16 @@ class RSAEnv(gym.Env):
     def _get_info(self):
         return {}
         
-    def _find_available_color(link_state:np.ndarray, link_capacity:int):
+    def _find_available_color(self, linkstate, link_capacity:int):
         for color in range(link_capacity):
-            if link_state[color] == State.AVAILABLE:
+            if linkstate[color] == State.AVAILABLE:
                 return color
         return -1
 
     def reset(self, seed=None):
         super().reset(seed=seed)
         self.round = 0
-        self._linkstates = RSAEnv.make_blank_linkstates(self.num_links, self.link_capacity)
+        self._linkstates = RSAEnv.make_blank_linkstates(self.topology)
         self.req_loader = csv_lineReader(self.req_file)
         self._req = get_next_csv_line(self.req_loader)
 
@@ -105,26 +106,31 @@ class RSAEnv(gym.Env):
     def step(self, action:int):
         self._clock_forward()
         truncated:bool = (self.round == self.max_ht - 1)
-        assert action in range(self.action_space.n)
+        assert action in range(self.action_space.n), "Invalid action"
         #assert action in range(self.num_links), "Invalid action"
 
-        # Change in action might affect this find_available_color()
-        available_color = RSAEnv._find_available_color(self._linkstates[action], self.link_capacity)
-        if available_color == -1:
-            reward = -1
-        else:
-            reward = 1
-            curr_req_ht = self._req["holding_time"]
-            self._linkstates[action][available_color] = curr_req_ht
+        ###     Need to be able to apply operation to all links on chosen path.  Right now forcing chosen path number on linkstates array.  Incorrect.
+        curr_req_ht = self._req["holding_time"]
+        for ia in nwutil.POSSIBLE_ACTIONS[action]["path"]:
+            available_color = self._find_available_color(self._linkstates[ia], self.link_capacity)
+            if available_color == -1:
+                reward = -1
+                break
+            else:
+                reward = 1
+                self._linkstates[ia][available_color] = curr_req_ht
 
         self._req = get_next_csv_line(self.req_loader)
         observation = self._get_obs()
         info = self._get_info()
 
-        if self._debug:
+        if self._debug == 2:
             print(f"{self.round}, obs: {observation}")
 
         return observation, reward, False, truncated, info
-    
-    def make_blank_linkstates(num_links:int, link_capacity:int) -> list[np.ndarray]:
-        return list((np.array([State.AVAILABLE] * link_capacity, dtype=np.int8)) for x in range(num_links))
+
+    def make_blank_linkstates(tgtGraph:nx.Graph) -> list[np.ndarray]:
+        result = []
+        for edge in tgtGraph.edges:
+            result.append(np.array([State.AVAILABLE] * tgtGraph.edges[edge[0], edge[1]]["state"].capacity, dtype=np.int8))
+        return result

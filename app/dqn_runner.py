@@ -4,6 +4,7 @@ import model.resource as resource
 
 ##  Begin Standard Imports
 # import gymnasium as gym
+import torch
 import stable_baselines3 as sb3
 from stable_baselines3 import DQN
 from stable_baselines3.common import monitor, utils, env_checker
@@ -13,9 +14,10 @@ from stable_baselines3.common import monitor, utils, env_checker
 
 ##  Custom environment
 def make_env(seed: int=100) -> monitor.Monitor:
-    env:rsaenv.RSAEnv = rsaenv.RSAEnv(req_file=str(resource.TMP_REQ_FILE), max_ht=int(resource.config_values.get_option("max_ht")))
+    env:rsaenv.RSAEnv = rsaenv.RSAEnv(req_file=str(resource.TMP_TRAIN_FILE), max_ht=int(resource.config_values.get_option("MAX_HT")))
     env = monitor.Monitor(env=env)
     env.reset(seed=seed)
+    return env
 
 ##  Typical DQN config provided in template
 CONST_PROVIDED_DQN_CONFIG:dict[str:object] = {
@@ -46,8 +48,11 @@ def generate_and_train_rsadqn(seed:int, _debug:int=0) -> None:
         for k,v in CONST_PROVIDED_DQN_CONFIG.items():
             print(f"\t[{k}]:: {v}")
     env:monitor.Monitor = make_env(seed)
-    env_checker.check_env(rsaenv.RSAEnv(req_file=str(resource.TMP_REQ_FILE)), warn=True)
+    env_checker.check_env(rsaenv.RSAEnv(req_file=str(resource.TMP_TRAIN_FILE)), warn=True)
+    if _debug:
+        print(f"Is CUDA available?  {torch.cuda.is_available()}")
     model:DQN = DQN(
+            device="cpu",
             env=env, 
             policy=str(resource.config_values.get_option("MODEL_POLICY")), 
             seed=seed,
@@ -78,14 +83,14 @@ def generate_and_train_rsadqn(seed:int, _debug:int=0) -> None:
         print(f"Closing model...")
     env.close()
 
-def test_rsadqn(seed:int, _debug:int=0) -> None:
+def test_rsadqn(file:str, seed:int, _debug:int=0) -> float:
     ##  Setup
     if _debug:
         print(f"Testing model now...")
         print(f"\t[Seed]:: {seed}")
-    test_env:rsaenv.RSAEnv = rsaenv.RSAEnv()
+    test_env:rsaenv.RSAEnv = rsaenv.RSAEnv(req_file=file)
     obs, info = test_env.reset(seed=seed)
-    ep_return = 0.0
+    ep_return:float = 0.0
 
     ##  Load the custom trained model generated beforehand
     if _debug:
@@ -98,16 +103,21 @@ def test_rsadqn(seed:int, _debug:int=0) -> None:
         action, _state = model.predict(obs, deterministic=True)
         obs, reward, terminated, truncated, info = test_env.step(action)
         if _debug:
+            print(f"\t[Observation]:: {str(obs)}")
             print(f"\t[Reward]:: {str(reward)}")
         ep_return += reward
         done = terminated or truncated
         if done:
             print(f"Model running complete!")
+    
+    print(f"Test episode return: {ep_return:.3f}")
 
     ##  
     if _debug:
         print(f"Closing test environment now...")
     test_env.close()
+
+    return ep_return
 
 def main() -> None:
     CONST_DEBUG:int = int(resource.config_values.get_option("DEBUG"))
@@ -115,7 +125,11 @@ def main() -> None:
 
     generate_and_train_rsadqn(seed=CONST_SEED, _debug=CONST_DEBUG)
 
-    test_rsadqn(seed=CONST_SEED + 1, _debug=CONST_DEBUG)
+    # ep_returns:list[float] = []
+    # for ia in resource.CONST_EVAL_DATA_DIR.glob("*.csv"):
+    #     print(f"Loading test file:\n\t{str(ia)}")
+    #     ep_returns.append(test_rsadqn(file=str(ia), seed=CONST_SEED + 1, _debug=CONST_DEBUG))
+    # print(f"ep_return values for 100 eval request files:\n{str(ep_returns)}")
 
 if __name__ == "__main__":
     main()
