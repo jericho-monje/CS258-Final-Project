@@ -13,7 +13,7 @@ from stable_baselines3.common import monitor, utils, env_checker
 
 ##  Custom environment
 def make_env(seed: int=100) -> monitor.Monitor:
-    env:rsaenv.RSAEnv = rsaenv.RSAEnv()
+    env:rsaenv.RSAEnv = rsaenv.RSAEnv(req_file=str(resource.TMP_REQ_FILE), max_ht=int(resource.config_values.get_option("max_ht")))
     env = monitor.Monitor(env=env)
     env.reset(seed=seed)
 
@@ -45,8 +45,8 @@ def generate_and_train_rsadqn(seed:int, _debug:int=0) -> None:
         print(f"\t[Seed]:: {str(seed)}")
         for k,v in CONST_PROVIDED_DQN_CONFIG.items():
             print(f"\t[{k}]:: {v}")
-    env:rsaenv.RSAEnv = make_env(seed)
-    env_checker.check_env(rsaenv.RSAEnv(), warn=True)
+    env:monitor.Monitor = make_env(seed)
+    env_checker.check_env(rsaenv.RSAEnv(req_file=str(resource.TMP_REQ_FILE)), warn=True)
     model:DQN = DQN(
             env=env, 
             policy=str(resource.config_values.get_option("MODEL_POLICY")), 

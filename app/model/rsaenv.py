@@ -1,10 +1,14 @@
+##  Begin Local Imports
+import model.nwutil as nwutil
+import model.resource as resource
+
 ##  Begin Standard Imports
 import csv
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 from enum import IntEnum
-from nwutil import generate_sample_graph, ROUTING_PATHS, POSSIBLE_ACTIONS
+import networkx as nx
 
 CONST_MODEL_SHAPE:int = 4
 
@@ -25,29 +29,25 @@ def get_next_csv_line(lineReader) -> dict:
         return None
 
 class RSAEnv(gym.Env):
-    def __init__(self, req_file:str, max_ht:int, num_links:int, link_capacity:int=20, debug:bool=False):
+    def __init__(self, req_file:str, max_ht:int=100, link_capacity:int=20, debug:bool=False):
         super().__init__()
         self._debug:bool = debug
-        self.num_links:int = num_links
+        self.topology:nx.Graph = nwutil.generate_sample_graph()
+        self.num_links:int = len(self.topology.edges)
+        self.num_nodes:int = len(self.topology.nodes)
         self.link_capacity:int = link_capacity
         self.max_ht:int = max_ht
         self.round:int = 0
 
-        # Generate Graph
-        self.graph = generate_sample_graph()
-
         obs_tmp_dict:dict = {}
-        for ia in range(num_links):
+        for ia in range(self.num_links):
             obs_tmp_dict.update({
                 f"LINK-{ia}" : spaces.MultiBinary(self.link_capacity)
             })
         obs_tmp_dict.update({
-            # ####### Figure out how to instantiate
-            "REQUEST" : spaces.Dict({
-                "source": spaces.Discrete(self.num_links),
-                "destination": spaces.Discrete(self.num_links),
-                "holding_time": spaces.Discrete(self.max_ht)
-            })
+            "source": spaces.Discrete(self.num_nodes),
+            "destination": spaces.Discrete(self.num_nodes),
+            "holding_time": spaces.Discrete(self.max_ht)
         })
 
         self.observation_space:spaces.Box = spaces.Dict(obs_tmp_dict)
@@ -55,9 +55,9 @@ class RSAEnv(gym.Env):
         self._linkstates:list[np.ndarray] = RSAEnv.make_blank_linkstates(self.num_links, self.link_capacity)
 
         # Set action space to length of possible actions
-        self.action_space = spaces.Discrete(len(POSSIBLE_ACTIONS))
+        self.action_space = spaces.Discrete(len(nwutil.POSSIBLE_ACTIONS))
 
-        self.req_file:str = self.req_file
+        self.req_file:str = req_file
         self.req_loader = csv_lineReader(self.req_file)
         self._req:dict = None
 
@@ -69,12 +69,9 @@ class RSAEnv(gym.Env):
             })
 
         result.update({
-            "REQUEST": spaces.Dict({
-                "source": self._req["source"],
-                "destination": self._req["destination"],
-                "holding_time": self._req["holding_time"]
-            })
-            #"req" : self._req
+            "source": int(self._req["source"]),
+            "destination": int(self._req["destination"]),
+            "holding_time": int(self._req["holding_time"])
         })
 
         return result
@@ -82,7 +79,7 @@ class RSAEnv(gym.Env):
     def _get_info(self):
         return {}
         
-    def _find_available_color(link_state, link_capacity:int):
+    def _find_available_color(link_state:np.ndarray, link_capacity:int):
         for color in range(link_capacity):
             if link_state[color] == State.AVAILABLE:
                 return color
@@ -112,7 +109,7 @@ class RSAEnv(gym.Env):
         #assert action in range(self.num_links), "Invalid action"
 
         # Change in action might affect this find_available_color()
-        available_color = self._find_available_color(self._linkstates[action])
+        available_color = RSAEnv._find_available_color(self._linkstates[action], self.link_capacity)
         if available_color == -1:
             reward = -1
         else:
@@ -130,4 +127,4 @@ class RSAEnv(gym.Env):
         return observation, reward, False, truncated, info
     
     def make_blank_linkstates(num_links:int, link_capacity:int) -> list[np.ndarray]:
-        return list((np.array([State.AVAILABLE] * link_capacity, dtype=np.int8)) for x in num_links)
+        return list((np.array([State.AVAILABLE] * link_capacity, dtype=np.int8)) for x in range(num_links))
