@@ -33,5 +33,14 @@ def test_nxGraphs():
     print(list(ia for ia in t0.adjacency()))
     print(len(t0.edges))
 
-# test_csvLineReader()
-test_nxGraphs()
+def test_generate_paths_by_edge():
+    result = nwutil.generate_routing_paths_by_edge(nwutil.SAMPLE_GRAPH_ROUTING_PATHS_BY_NODE, nwutil.generate_sample_graph())
+    print(result)
+
+def main() -> None:
+    # test_csvLineReader()
+    # test_nxGraphs()
+    test_generate_paths_by_edge()
+
+if __name__ == "__main__":
+    main()

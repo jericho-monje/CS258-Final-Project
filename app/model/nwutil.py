@@ -45,26 +45,67 @@ def generate_sample_graph():
         G.add_edge(u, v, state=LinkState(u, v))
     return G
 
-ROUTING_PATHS = {
-    (0, 3): [
-        [0, 2, 5],
-        [1, 11, 10, 7]
-    ],
-    (0, 4):[
-        [0, 4, 8],
-        [1, 11, 10, 7, 6]
-    ],
-    (7, 3):[
-        [3, 2, 5],
-        [10, 7]
-    ],
-    (7, 4):[
-        [3, 4, 8],
-        [10, 7, 6]
-    ]
-}
+SAMPLE_GRAPH_ROUTING_PATHS_BY_NODE = [
+    {
+        "source":0,
+        "destination":3,
+        "path":[0,1,2,3]
+    },
+    {
+        "source":0,
+        "destination":3,
+        "path":[0,8,7,6,3]
+    },
+    {
+        "source":0,
+        "destination":4,
+        "path":[0,1,5,4]
+    },
+    {
+        "source":0,
+        "destination":4,
+        "path":[0,8,7,6,3,4]
+    },
+    {
+        "source":7,
+        "destination":3,
+        "path":[7,1,2,3]
+    },
+    {
+        "source":7,
+        "destination":3,
+        "path":[7,6,3]
+    },
+    {
+        "source":7,
+        "destination":4,
+        "path":[7,1,5,4]
+    },
+    {
+        "source":7,
+        "destination":4,
+        "path":[7,6,3,4]
+    },
+]
 
-POSSIBLE_ACTIONS = []
-for src_dst_tuple, routing_paths_list in ROUTING_PATHS.items():
-    for path in routing_paths_list:
-        POSSIBLE_ACTIONS.append({"src_dst": src_dst_tuple, "path": path})
+def generate_routing_paths_by_edge(routing_paths_by_node:list[dict[str:int,str:int,str:list[int]]], target_graph:nx.Graph) -> list[dict[str:int,str:int,str:list[int]]]:
+    paths_by_edge:list[dict[str:int,str:int,str:list[int]]] = []
+    for node_path in routing_paths_by_node:
+        edge_path:dict[str:int,str:int,str:list[int]] = {
+            "source":node_path["source"],
+            "destination":node_path["destination"],
+        }
+        new_path:list[int] = []
+        for ia in range(0, len(node_path["path"])-1, 1):
+            u = node_path["path"][ia]
+            v = node_path["path"][ia+1]
+            if u > v:
+                u,v = v,u
+            new_path.append(list(target_graph.edges).index((u, v)))
+        
+        edge_path.update({
+            "path":new_path
+        })
+        paths_by_edge.append(edge_path)
+
+    return paths_by_edge

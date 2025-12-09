@@ -13,7 +13,7 @@ from stable_baselines3.common import monitor, utils, env_checker
 # env:gym.Env = gym.make("LunarLander-v3", render_mode="human")
 
 ##  Custom environment
-def make_env(seed: int=100) -> monitor.Monitor:
+def make_env(seed) -> monitor.Monitor:
     env:rsaenv.RSAEnv = rsaenv.RSAEnv(req_file=str(resource.TMP_TRAIN_FILE), link_capacity=20, max_ht=int(resource.config_values.get_option("MAX_HT")))
     env = monitor.Monitor(env=env)
     env.reset(seed=seed)
@@ -40,15 +40,21 @@ def generate_and_train_rsadqn(seed:int, _debug:int=0) -> None:
         print(f"Setting random seed to value `{str(seed)}`...")
     utils.set_random_seed(seed)
 
-    ##  Generate custom RSA Gymnasium Environment with method `make_env`
+    ##  Make custom RSA Gymnasium Environment with method `make_env`
     if _debug:
         print(f"Making custom RSA Gymnasium Environment...")
+    env:monitor.Monitor = make_env(seed)
+
+    ##  Check custom RSA Environment
+    env_checker.check_env(rsaenv.RSAEnv(req_file=str(resource.TMP_TRAIN_FILE)), warn=True)
+
+    ##  Generate the DQN model with the custom environment
+    if _debug:
+        print(f"Generating DQN model...")
         print(f"\t[Policy]:: {resource.config_values.get_option("MODEL_POLICY")}")
         print(f"\t[Seed]:: {str(seed)}")
         for k,v in CONST_PROVIDED_DQN_CONFIG.items():
             print(f"\t[{k}]:: {v}")
-    env:monitor.Monitor = make_env(seed)
-    env_checker.check_env(rsaenv.RSAEnv(req_file=str(resource.TMP_TRAIN_FILE)), warn=True)
     if _debug:
         print(f"Is CUDA available?  {torch.cuda.is_available()}")
     model:DQN = DQN(
@@ -128,13 +134,13 @@ def main() -> None:
 
     generate_and_train_rsadqn(seed=CONST_SEED, _debug=CONST_DEBUG)
 
-    # ep_returns:list[float] = []
-    # for ia in resource.CONST_EVAL_DATA_DIR.glob("*.csv"):
-    #     if any(x in str(ia) for x in ["280","289"]):
-    #         continue
-    #     print(f"Loading test file:\n\t{str(ia)}")
-    #     ep_returns.append(test_rsadqn(file=str(ia), seed=CONST_SEED + 1, _debug=CONST_DEBUG))
-    # print(f"ep_return values for 100 eval request files:\n{str(ep_returns)}")
+    ep_returns:list[float] = []
+    for ia in resource.CONST_EVAL_DATA_DIR.glob("*.csv"):
+        if any(x in str(ia) for x in ["280","289"]):
+            continue
+        print(f"Loading test file:\n\t{str(ia)}")
+        ep_returns.append(test_rsadqn(file=str(ia), seed=CONST_SEED + 1, _debug=CONST_DEBUG))
+    print(f"ep_return values for 100 eval request files:\n{str(ep_returns)}")
 
 if __name__ == "__main__":
     main()
