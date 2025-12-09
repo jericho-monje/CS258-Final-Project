@@ -42,8 +42,7 @@ class RSAEnv(gym.Env):
         obs_tmp_dict:dict = {}
         for ia in range(self.num_links):
             obs_tmp_dict.update({
-                f"LINK-{ia}" : spaces.MultiBinary(self.link_capacity)                
-                # f"LINK-{ia}" : spaces.MultiDiscrete(np.ndarray([0] * self.link_capacity, dtype=np.int32))
+                f"LINK-{ia}" : spaces.MultiBinary(self.link_capacity)
             })
         obs_tmp_dict.update({
             "source": spaces.Discrete(self.num_nodes),
@@ -79,12 +78,18 @@ class RSAEnv(gym.Env):
 
     def _get_info(self):
         return {}
-        
-    def _find_available_color(self, linkstate, link_capacity:int):
-        for color in range(link_capacity):
-            if linkstate[color] == State.AVAILABLE:
+    
+    def _find_available_color(self, action:int):
+        for color in range(self.link_capacity):
+            available_for_all = True
+            for ia in nwutil.POSSIBLE_ACTIONS[action]["path"]:
+                if self._linkstate[ia][color] != State.AVAILABLE:
+                    available_for_all = False
+                    break
+            if available_for_all:
                 return color
         return -1
+
 
     def reset(self, seed=None):
         super().reset(seed=seed)
@@ -106,18 +111,17 @@ class RSAEnv(gym.Env):
     def step(self, action:int):
         self._clock_forward()
         truncated:bool = (self.round == self.max_ht - 1)
+        # assert int(self._req["holding_time"]) < self.max_ht
         assert action in range(self.action_space.n), "Invalid action"
-        #assert action in range(self.num_links), "Invalid action"
 
         ###     Need to be able to apply operation to all links on chosen path.  Right now forcing chosen path number on linkstates array.  Incorrect.
-        curr_req_ht = self._req["holding_time"]
-        for ia in nwutil.POSSIBLE_ACTIONS[action]["path"]:
-            available_color = self._find_available_color(self._linkstates[ia], self.link_capacity)
-            if available_color == -1:
-                reward = -1
-                break
-            else:
-                reward = 1
+        curr_req_ht = int(self._req["holding_time"])
+        available_color = self._find_available_color(action)
+        if available_color == -1:
+            reward = -1
+        else:
+            reward = 1
+            for ia in nwutil.POSSIBLE_ACTIONS[action]["path"]:
                 self._linkstates[ia][available_color] = curr_req_ht
 
         self._req = get_next_csv_line(self.req_loader)

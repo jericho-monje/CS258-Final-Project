@@ -14,7 +14,7 @@ from stable_baselines3.common import monitor, utils, env_checker
 
 ##  Custom environment
 def make_env(seed: int=100) -> monitor.Monitor:
-    env:rsaenv.RSAEnv = rsaenv.RSAEnv(req_file=str(resource.TMP_TRAIN_FILE), max_ht=int(resource.config_values.get_option("MAX_HT")))
+    env:rsaenv.RSAEnv = rsaenv.RSAEnv(req_file=str(resource.TMP_TRAIN_FILE), link_capacity=20, max_ht=int(resource.config_values.get_option("MAX_HT")))
     env = monitor.Monitor(env=env)
     env.reset(seed=seed)
     return env
@@ -52,7 +52,7 @@ def generate_and_train_rsadqn(seed:int, _debug:int=0) -> None:
     if _debug:
         print(f"Is CUDA available?  {torch.cuda.is_available()}")
     model:DQN = DQN(
-            device="cpu",
+            device=str(resource.config_values.get_option("MODEL_DEVICE")),
             env=env, 
             policy=str(resource.config_values.get_option("MODEL_POLICY")), 
             seed=seed,
@@ -88,21 +88,24 @@ def test_rsadqn(file:str, seed:int, _debug:int=0) -> float:
     if _debug:
         print(f"Testing model now...")
         print(f"\t[Seed]:: {seed}")
-    test_env:rsaenv.RSAEnv = rsaenv.RSAEnv(req_file=file)
+    test_env:rsaenv.RSAEnv = rsaenv.RSAEnv(req_file=file,link_capacity=20,max_ht=int(resource.config_values.get_option("MAX_HT")))
     obs, info = test_env.reset(seed=seed)
     ep_return:float = 0.0
 
     ##  Load the custom trained model generated beforehand
     if _debug:
         print(f"Loading model from path {str(resource.CONST_DQN_MODEL_PATH)}.zip")
-    model=DQN.load(resource.CONST_DQN_MODEL_PATH)
+    model=DQN.load(
+            path=resource.CONST_DQN_MODEL_PATH,
+            device=str(resource.config_values.get_option("MODEL_DEVICE"))
+        )
 
     ##  While not terminated or truncated, predict and step the model while adjusting the reward.
     done=False
     while not done:
         action, _state = model.predict(obs, deterministic=True)
         obs, reward, terminated, truncated, info = test_env.step(action)
-        if _debug:
+        if _debug == 2:
             print(f"\t[Observation]:: {str(obs)}")
             print(f"\t[Reward]:: {str(reward)}")
         ep_return += reward
@@ -110,7 +113,7 @@ def test_rsadqn(file:str, seed:int, _debug:int=0) -> float:
         if done:
             print(f"Model running complete!")
     
-    print(f"Test episode return: {ep_return:.3f}")
+    print(f"\tTest episode return: {ep_return:.3f}")
 
     ##  
     if _debug:
@@ -127,6 +130,8 @@ def main() -> None:
 
     # ep_returns:list[float] = []
     # for ia in resource.CONST_EVAL_DATA_DIR.glob("*.csv"):
+    #     if any(x in str(ia) for x in ["280","289"]):
+    #         continue
     #     print(f"Loading test file:\n\t{str(ia)}")
     #     ep_returns.append(test_rsadqn(file=str(ia), seed=CONST_SEED + 1, _debug=CONST_DEBUG))
     # print(f"ep_return values for 100 eval request files:\n{str(ep_returns)}")

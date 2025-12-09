@@ -32,7 +32,8 @@ class configValues:
                 "SEED" : "123",
                 "N_EPISODES" : "1000",
                 "MODEL_POLICY" : "MultiInputPolicy",
-                "MAX_HT" : "100"
+                "MAX_HT" : "100",
+                "MODEL_DEVICE" : "CPU"
             }
         }
 
