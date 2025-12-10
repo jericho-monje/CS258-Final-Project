@@ -12,8 +12,8 @@ CONST_MODEL_DIR:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r".\model"))
 CONST_EVAL_DATA_DIR:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\eval"))
 CONST_TRAIN_DATA_DIR:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\train"))
 
-TMP_TRAIN_FILE:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\train\requests-0.csv"))
-TMP_EVAL_FILE:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\eval\requests-0.csv"))
+# TMP_TRAIN_FILE:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\train\requests-0.csv"))
+# TMP_EVAL_FILE:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\eval\requests-0.csv"))
 
 CONST_DQN_MODEL_PATH:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r".\dqn_rsaenv_model"))
 
@@ -28,12 +28,12 @@ class configValues:
 
         TMP_VALUES_:dict[str:dict[str:str]] = {
             "DEFAULT" : {
-                "DEBUG" : "1",
                 "SEED" : "123",
                 "N_EPISODES" : "1000",
+                "LINK_CAPACITY" : "10",
                 "MODEL_POLICY" : "MultiInputPolicy",
                 "MAX_HT" : "100",
-                "MODEL_DEVICE" : "CPU"
+                "MODEL_DEVICE" : "CPU",
             }
         }
 

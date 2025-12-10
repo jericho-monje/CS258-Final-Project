@@ -35,7 +35,7 @@ def get_next_request_from_csv(lineReader) -> nwutil.Request:
         return None
 
 class RSAEnv(gym.Env):
-    def __init__(self, req_file:str, max_ht:int=100, link_capacity:int=20, debug:bool=False):
+    def __init__(self, req_file:str, max_ht:int=100, link_capacity:int=10, debug:bool=False):
         super().__init__()
         self._debug:bool = debug
         self.topology:nx.Graph = nwutil.generate_sample_graph()

@@ -3,6 +3,7 @@ import model.rsaenv as rsaenv
 import model.resource as resource
 
 ##  Begin Standard Imports
+import argparse
 # import gymnasium as gym
 import torch
 import stable_baselines3 as sb3
@@ -14,7 +15,7 @@ from stable_baselines3.common import monitor, utils, env_checker
 
 ##  Custom environment
 def make_env(seed) -> monitor.Monitor:
-    env:rsaenv.RSAEnv = rsaenv.RSAEnv(req_file=str(resource.TMP_TRAIN_FILE), link_capacity=20, max_ht=int(resource.config_values.get_option("MAX_HT")))
+    env:rsaenv.RSAEnv = rsaenv.RSAEnv(req_file=str(resource.TMP_TRAIN_FILE), link_capacity=int(resource.config_values.get_option("LINK_CAPACITY")), max_ht=int(resource.config_values.get_option("MAX_HT")))
     env = monitor.Monitor(env=env)
     env.reset(seed=seed)
     return env
@@ -46,7 +47,7 @@ def generate_and_train_rsadqn(seed:int, _debug:int=0) -> None:
     env:monitor.Monitor = make_env(seed)
 
     ##  Check custom RSA Environment
-    env_checker.check_env(rsaenv.RSAEnv(req_file=str(resource.TMP_TRAIN_FILE)), warn=True)
+    env_checker.check_env(rsaenv.RSAEnv(req_file=str(resource.TMP_TRAIN_FILE), link_capacity=int(resource.config_values.get_option("LINK_CAPACITY"))), warn=True)
 
     ##  Generate the DQN model with the custom environment
     if _debug:
@@ -94,7 +95,7 @@ def test_rsadqn(file:str, seed:int, _debug:int=0) -> float:
     if _debug:
         print(f"Testing model now...")
         print(f"\t[Seed]:: {seed}")
-    test_env:rsaenv.RSAEnv = rsaenv.RSAEnv(req_file=file,link_capacity=20,max_ht=int(resource.config_values.get_option("MAX_HT")))
+    test_env:rsaenv.RSAEnv = rsaenv.RSAEnv(req_file=file,link_capacity=int(resource.config_values.get_option("LINK_CAPACITY")),max_ht=int(resource.config_values.get_option("MAX_HT")))
     obs, info = test_env.reset(seed=seed)
     ep_return:float = 0.0
 
@@ -129,18 +130,32 @@ def test_rsadqn(file:str, seed:int, _debug:int=0) -> float:
     return ep_return
 
 def main() -> None:
-    CONST_DEBUG:int = int(resource.config_values.get_option("DEBUG"))
+    argParser = argparse.ArgumentParser()
+    argParser.add_argument("--debug", help="Set debug verbosity.  Integer value 0, 1, or 2.")
+    argParser.add_argument("--train", action="store_true", help="Train a model.  Incompatible with `--eval`.")
+    argParser.add_argument("--eval", action="store_true", help="Evaluate a model.  Incompatible with `--train`.")
+    args = argParser.parse_args()
+
+    if args.train and args.eval:
+        raise Exception(f"Cannot train and evaluate at the same time!")
+
+    try:
+        CONST_DEBUG:int = int(args.debug)
+    except Exception as e:
+        CONST_DEBUG:int = 0
     CONST_SEED:int = int(resource.config_values.get_option("SEED"))
 
-    generate_and_train_rsadqn(seed=CONST_SEED, _debug=CONST_DEBUG)
+    if args.train:
+        generate_and_train_rsadqn(seed=CONST_SEED, _debug=CONST_DEBUG)
 
-    ep_returns:list[float] = []
-    for ia in resource.CONST_EVAL_DATA_DIR.glob("*.csv"):
-        if any(x in str(ia) for x in ["280","289"]):
-            continue
-        print(f"Loading test file:\n\t{str(ia)}")
-        ep_returns.append(test_rsadqn(file=str(ia), seed=CONST_SEED + 1, _debug=CONST_DEBUG))
-    print(f"ep_return values for 100 eval request files:\n{str(ep_returns)}")
+    if args.eval:
+        ep_returns:list[float] = []
+        for ia in resource.CONST_EVAL_DATA_DIR.glob("*.csv"):
+            if any(x in str(ia) for x in ["280","289"]):
+                continue
+            print(f"Loading test file:\n\t{str(ia)}")
+            ep_returns.append(test_rsadqn(file=str(ia), seed=CONST_SEED + 1, _debug=CONST_DEBUG))
+        print(f"ep_return values for 100 eval request files:\n{str(ep_returns)}")
 
 if __name__ == "__main__":
     main()
