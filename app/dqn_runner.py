@@ -9,13 +9,14 @@ import torch
 import stable_baselines3 as sb3
 from stable_baselines3 import DQN
 from stable_baselines3.common import monitor, utils, env_checker
+from pathlib import Path
 
 ##  Example environment preset
 # env:gym.Env = gym.make("LunarLander-v3", render_mode="human")
 
 ##  Custom environment
-def make_env(seed) -> monitor.Monitor:
-    env:rsaenv.RSAEnv = rsaenv.RSAEnv(req_file=str(resource.TMP_TRAIN_FILE), link_capacity=int(resource.config_values.get_option("LINK_CAPACITY")), max_ht=int(resource.config_values.get_option("MAX_HT")))
+def make_env(link_capacity:int, seed:int) -> monitor.Monitor:
+    env:rsaenv.RSAEnv = rsaenv.RSAEnv(req_file=str(resource.TMP_TRAIN_FILE), link_capacity=link_capacity, max_ht=int(resource.config_values.get_option("MAX_HT")))
     env = monitor.Monitor(env=env)
     env.reset(seed=seed)
     return env
@@ -35,7 +36,7 @@ CONST_PROVIDED_DQN_CONFIG:dict[str:object] = {
 }
 
 ##  Generate a DQN model using the custom RSA Environment, then train and save it.
-def generate_and_train_rsadqn(seed:int, _debug:int=0) -> None:
+def generate_and_train_rsadqn(model_path:str, link_capacity:int, seed:int, _debug:int=0) -> None:
     ##  Set random seed value
     if _debug:
         print(f"Setting random seed to value `{str(seed)}`...")
@@ -44,10 +45,10 @@ def generate_and_train_rsadqn(seed:int, _debug:int=0) -> None:
     ##  Make custom RSA Gymnasium Environment with method `make_env`
     if _debug:
         print(f"Making custom RSA Gymnasium Environment...")
-    env:monitor.Monitor = make_env(seed)
+    env:monitor.Monitor = make_env(link_capacity=link_capacity, seed=seed)
 
     ##  Check custom RSA Environment
-    env_checker.check_env(rsaenv.RSAEnv(req_file=str(resource.TMP_TRAIN_FILE), link_capacity=int(resource.config_values.get_option("LINK_CAPACITY"))), warn=True)
+    env_checker.check_env(rsaenv.RSAEnv(req_file=str(resource.TMP_TRAIN_FILE), link_capacity=link_capacity), warn=True)
 
     ##  Generate the DQN model with the custom environment
     if _debug:
@@ -82,28 +83,28 @@ def generate_and_train_rsadqn(seed:int, _debug:int=0) -> None:
     ##  Save model to path
     if _debug:
         print(f"Saving model...")
-    model.save(resource.CONST_DQN_MODEL_PATH)
-    print(f"Model saved!!  \n\t[Save Path]::{str(resource.CONST_DQN_MODEL_PATH)}.zip")
+    model.save(model_path)
+    print(f"Model saved!!  \n\t[Save Path]::{str(model_path)}")
 
     ##  Close model
     if _debug:
         print(f"Closing model...")
     env.close()
 
-def test_rsadqn(file:str, seed:int, _debug:int=0) -> float:
+def test_rsadqn(file:str, model_path:str, link_capacity:int, seed:int, _debug:int=0) -> float:
     ##  Setup
     if _debug:
         print(f"Testing model now...")
         print(f"\t[Seed]:: {seed}")
-    test_env:rsaenv.RSAEnv = rsaenv.RSAEnv(req_file=file,link_capacity=int(resource.config_values.get_option("LINK_CAPACITY")),max_ht=int(resource.config_values.get_option("MAX_HT")))
+    test_env:rsaenv.RSAEnv = rsaenv.RSAEnv(req_file=file,link_capacity=link_capacity,max_ht=int(resource.config_values.get_option("MAX_HT")))
     obs, info = test_env.reset(seed=seed)
     ep_return:float = 0.0
 
     ##  Load the custom trained model generated beforehand
     if _debug:
-        print(f"Loading model from path {str(resource.CONST_DQN_MODEL_PATH)}.zip")
+        print(f"Loading model from path {str(model_path)}")
     model=DQN.load(
-            path=resource.CONST_DQN_MODEL_PATH,
+            path=model_path,
             device=str(resource.config_values.get_option("MODEL_DEVICE"))
         )
 
@@ -112,13 +113,17 @@ def test_rsadqn(file:str, seed:int, _debug:int=0) -> float:
     while not done:
         action, _state = model.predict(obs, deterministic=True)
         obs, reward, terminated, truncated, info = test_env.step(action)
-        if _debug == 2:
+        if _debug >= 3:
             print(f"\t[Observation]:: {str(obs)}")
+        if _debug >= 2:
             print(f"\t[Reward]:: {str(reward)}")
+            for k,v in info.items():
+                print(f"\t[{k}]:: {v}")
         ep_return += reward
         done = terminated or truncated
         if done:
             print(f"Model running complete!")
+            print(f"\t[Blocking Rate]:: {str(float(info["blocks"]))} / {str(float(info["requests"]))} = {str(float(info["blocks"] / info["requests"]))}")
     
     print(f"\tTest episode return: {ep_return:.3f}")
 
@@ -131,31 +136,64 @@ def test_rsadqn(file:str, seed:int, _debug:int=0) -> float:
 
 def main() -> None:
     argParser = argparse.ArgumentParser()
-    argParser.add_argument("--debug", help="Set debug verbosity.  Integer value 0, 1, or 2.")
-    argParser.add_argument("--train", action="store_true", help="Train a model.  Incompatible with `--eval`.")
-    argParser.add_argument("--eval", action="store_true", help="Evaluate a model.  Incompatible with `--train`.")
+    argParser.add_argument("--debug", type=int, help="Set debug verbosity.  Integer value 0, 1, or 2.")
+    argParser.add_argument("--train", type=Path, help="Train a model.  Incompatible with `--eval`.")
+    argParser.add_argument("--eval", type=Path, help="Evaluate a model.  Incompatible with `--train`.")
+    argParser.add_argument("--linkcapacity", type=int, help="Define an RSA network link capacity parameter.  Updates config file.")
     args = argParser.parse_args()
-
-    if args.train and args.eval:
-        raise Exception(f"Cannot train and evaluate at the same time!")
 
     try:
         CONST_DEBUG:int = int(args.debug)
     except Exception as e:
         CONST_DEBUG:int = 0
+    print(f"[Debug]:: {'ON' if CONST_DEBUG else 'OFF'} ({CONST_DEBUG})")
     CONST_SEED:int = int(resource.config_values.get_option("SEED"))
 
+    CONST_LINK_CAPACITY:int = int(resource.config_values.get_option("LINK_CAPACITY"))
+    if args.linkcapacity:
+        try:
+            CONST_LINK_CAPACITY = int(args.linkcapacity)
+        except Exception as e:
+            CONST_LINK_CAPACITY = int(resource.config_values.get_option("LINK_CAPACITY"))
+        resource.config_values.set_option(str(CONST_LINK_CAPACITY), "LINK_CAPACITY")
+        print(f"RSA Network link capacity set to `{CONST_LINK_CAPACITY}`")
+    
+    if args.train and args.eval:
+        raise Exception(f"Cannot train and evaluate at the same time!")
+    elif not args.train and not args.eval:
+        raise Exception(f"Must choose to either train or evaluate!!")
+    # if args.train and not Path(str(args.train)).exists():
+    #     raise FileNotFoundError(f"No such `{str(args.train)}` file found!!")
+    # if args.eval and not Path(str(args.eval)).exists():
+    #     raise FileNotFoundError(f"No such `{str(args.eval)}` file found!!")
+
     if args.train:
-        generate_and_train_rsadqn(seed=CONST_SEED, _debug=CONST_DEBUG)
+        target_model_path:Path = None
+        try:
+            target_model_path = validate_model_path(args.train)
+        except Exception as e:
+            raise e
+        
+        generate_and_train_rsadqn(model_path=target_model_path, link_capacity=CONST_LINK_CAPACITY, seed=CONST_SEED, _debug=CONST_DEBUG)
 
     if args.eval:
+        target_model_path:Path = None
+        try:
+            target_model_path = validate_model_path(args.eval)
+        except Exception as e:
+            raise e
+        
         ep_returns:list[float] = []
         for ia in resource.CONST_EVAL_DATA_DIR.glob("*.csv"):
-            if any(x in str(ia) for x in ["280","289"]):
-                continue
             print(f"Loading test file:\n\t{str(ia)}")
-            ep_returns.append(test_rsadqn(file=str(ia), seed=CONST_SEED + 1, _debug=CONST_DEBUG))
+            ep_returns.append(test_rsadqn(file=str(ia), model_path=target_model_path, link_capacity=CONST_LINK_CAPACITY, seed=CONST_SEED + 1, _debug=CONST_DEBUG))
         print(f"ep_return values for 100 eval request files:\n{str(ep_returns)}")
+
+def validate_model_path(tgt_path:str) -> Path:
+    result:Path = Path(str(tgt_path).strip())
+    if not result.exists() or not result.suffix == ".zip":
+        raise Exception("Inputted model file path not valid...")
+    return result
 
 if __name__ == "__main__":
     main()

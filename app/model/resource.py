@@ -12,10 +12,9 @@ CONST_MODEL_DIR:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r".\model"))
 CONST_EVAL_DATA_DIR:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\eval"))
 CONST_TRAIN_DATA_DIR:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\train"))
 
-# TMP_TRAIN_FILE:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\train\requests-0.csv"))
-# TMP_EVAL_FILE:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\eval\requests-0.csv"))
+TMP_TRAIN_FILE:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\train\requests-0.csv"))
 
-CONST_DQN_MODEL_PATH:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r".\dqn_rsaenv_model"))
+# CONST_DQN_MODEL_PATH:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r".\dqn_rsaenv_model"))
 
 def generateTimestamp() -> str:
     result:str = datetime.now().strftime("%d%m%y-%H%M%S")
@@ -58,6 +57,7 @@ class configValues:
             self.__config_parser.write(f, space_around_delimiters=False)
 
     def get_option(self, option:str, section:str="DEFAULT") -> str:
+        self.__config_parser.read(self.CONST_CONFIG_FILE)
         return self.__config_parser[section][option]
     
     def set_option(self, target:str, option:str, section:str="DEFAULT") -> str:
