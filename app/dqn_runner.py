@@ -48,7 +48,7 @@ def averaged_evaluations(evaluations):
         if idx == 0:
             average = evaluations[idx]
         elif idx < 10:
-            average = sum(evaluations[:idx]) / (idx + 1)
+            average = sum(evaluations[:idx + 1]) / (idx + 1)
         else:
             average = sum(evaluations[idx - 9:idx + 1]) / 10
         averaged_eval_list.append(average)
