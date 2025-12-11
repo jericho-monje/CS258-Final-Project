@@ -10,6 +10,7 @@ import stable_baselines3 as sb3
 from stable_baselines3 import DQN
 from stable_baselines3.common import monitor, utils, env_checker
 from pathlib import Path
+import matplotlib.pyplot as plot
 
 ##  Example environment preset
 # env:gym.Env = gym.make("LunarLander-v3", render_mode="human")
@@ -34,6 +35,56 @@ CONST_PROVIDED_DQN_CONFIG:dict[str:object] = {
     "exploration_fraction":0.2,
     "exploration_final_eps":0.05
 }
+
+"""
+Returns the average episode rewards.
+First episode is not averaged, first 9 episodes are partially averaged, then beyond that the last 10 episodes
+are averaged.
+"""
+def averaged_evaluations(evaluations):
+    averaged_eval_list = []
+
+    for idx in range(len(evaluations)):
+        if idx == 0:
+            average = evaluations[idx]
+        elif idx < 10:
+            average = sum(evaluations[:idx]) / (idx + 1)
+        else:
+            average = sum(evaluations[idx - 9:idx + 1]) / 10
+        averaged_eval_list.append(average)
+    
+    return averaged_eval_list
+
+"""
+Creates 3 plots for evaluation and saves as a .PNG
+"""
+def create_plots(average_episodes, average_blocking, average_eval_blocking, capacity):
+    plot.plot(range(1, len(average_episodes) + 1), average_episodes, linewidth=3, color="#5D3FD3")
+    plot.xlabel("Episode")
+    plot.ylabel("Averaged Episode Rewards")
+    plot.title(f"Learning Curve (Averaged Episode Rewards vs Episode) for Capacity={capacity}")
+    plot.grid(True, alpha=0.5)
+    plot.tight_layout()
+    plot.savefig(f"Learning_Curve_(Averaged_Episode_Rewards)_for_Capacity_{capacity}", dpi=250)
+    plot.close()
+
+    plot.plot(range(1, len(average_blocking) + 1), average_blocking, linewidth=3, color="#800020")
+    plot.xlabel("Episode")
+    plot.ylabel("Averaged Objective B")
+    plot.title(f"Learning Curve (Averaged Objective B vs Episode) for Capacity={capacity}")
+    plot.grid(True, alpha=0.5)
+    plot.tight_layout()
+    plot.savefig(f"Learning_Curve_(Averaged_Objective_B)_for_Capacity_{capacity}", dpi=250)
+    plot.close()
+
+    plot.plot(range(1, len(average_eval_blocking) + 1), average_eval_blocking, linewidth=3, color="#004080")
+    plot.xlabel("Episode")
+    plot.ylabel("Averaged Objective B")
+    plot.title(f"Learning Curve (Averaged Objective B vs Episode) for Capacity={capacity} in eval Dataset")
+    plot.grid(True, alpha=0.5)
+    plot.tight_layout()
+    plot.savefig(f"Learning_Curve_(Averaged_Objective_B)_for_Capacity_{capacity}_EVAL", dpi=250)
+    plot.close()
 
 ##  Generate a DQN model using the custom RSA Environment, then train and save it.
 def generate_and_train_rsadqn(model_path:str, link_capacity:int, seed:int, _debug:int=0) -> None:
