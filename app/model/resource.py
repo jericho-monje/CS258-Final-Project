@@ -33,6 +33,7 @@ class configValues:
                 "MODEL_POLICY" : "MultiInputPolicy",
                 "MAX_HT" : "100",
                 "MODEL_DEVICE" : "CPU",
+                "OPTUNA_TRIALS" : "5"
             }
         }
 
