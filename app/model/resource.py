@@ -1,5 +1,5 @@
 ##  Begin Standard Imports
-import sys
+import sys, random
 from datetime import datetime
 from configparser import ConfigParser
 from pathlib import Path
@@ -12,13 +12,16 @@ CONST_MODEL_DIR:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r".\model"))
 CONST_EVAL_DATA_DIR:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\eval"))
 CONST_TRAIN_DATA_DIR:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\train"))
 
-TMP_TRAIN_FILE:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\train\requests-0.csv"))
-
 # CONST_DQN_MODEL_PATH:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r".\dqn_rsaenv_model"))
 
 def generateTimestamp() -> str:
     result:str = datetime.now().strftime("%d%m%y-%H%M%S")
     return result
+
+def random_training_file(seed:int) -> Path:
+    random.seed(seed)
+    chosen_training_file:Path = random.choice(list(CONST_TRAIN_DATA_DIR.glob("*.csv")))
+    return chosen_training_file
 
 class configValues:
     def __init__(self) -> None:
