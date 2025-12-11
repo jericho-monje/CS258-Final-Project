@@ -66,6 +66,6 @@ class configValues:
     
     def set_option(self, target:str, option:str, section:str="DEFAULT") -> str:
         self.__config_parser.set(section, option, str(target))
-        self.__update_config_file()
+        self.__update_config_file() 
 
 config_values = configValues()

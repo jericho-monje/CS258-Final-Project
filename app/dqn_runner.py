@@ -224,7 +224,7 @@ def generate_and_train_rsadqn(model_path:str, link_capacity:int, seed:int, use_t
             seed=seed,
             verbose=_debug + 1,
             **chosen_dqn_config
-        )
+        ) 
 
     ##  Reset `env`
     if _debug:
