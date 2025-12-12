@@ -29,7 +29,8 @@ class LinkState(BaseLinkState):
     You can extend this class to add more attributes if needed.
     Do not change the BaseLinkState class.
     """
-    def __init__(self, u, v, capacity=int(resource.config_values.get_option("LINK_CAPACITY")), utilization=0.0):
+    def __init__(self, u, v, capacity=20, utilization=0.0):
+        capacity = int(resource.config_values.get_option("LINK_CAPACITY"))
         super().__init__(u, v, capacity, utilization) 
 
 

@@ -11,11 +11,15 @@ import stable_baselines3 as sb3
 import optuna
 from matplotlib import pyplot as plot
 from stable_baselines3 import DQN
-from stable_baselines3.common import monitor, utils, env_checker, callbacks, evaluation
+from stable_baselines3.common import monitor, utils, env_checker, callbacks, evaluation, env_util, callbacks
 from pathlib import Path
 
-##  Example environment preset
-# env:gym.Env = gym.make("LunarLander-v3", render_mode="human")
+global_ep_returns:list[float] = []
+global_blocking_rates:list[float] = []
+
+def reset_global_metrics() -> None:
+    global_blocking_rates.clear()
+    global_ep_returns.clear()
 
 ##  Custom environment
 def make_env(training_file:str, link_capacity:int, seed:int) -> monitor.Monitor:
@@ -40,7 +44,7 @@ CONST_PROVIDED_DQN_CONFIG:dict[str:object] = {
 
 """
 Returns the average episode rewards.
-First episode is not averaged, first 9 episodes are partially averaged, then beyond that the last 10 episodes
+First episode is not averaged, next 8 episodes are partially averaged, then beyond that the last 10 episodes
 are averaged.
 """
 def averaged_evaluations(evaluations):
@@ -60,7 +64,7 @@ def averaged_evaluations(evaluations):
 """
 Creates 3 plots for evaluation and saves as a .PNG
 """
-def create_plots(average_episodes, average_blocking, average_eval_blocking, capacity):
+def create_training_plots(average_episodes, average_blocking, capacity):
     plot.plot(range(1, len(average_episodes) + 1), average_episodes, linewidth=3, color="#5D3FD3")
     plot.xlabel("Episode")
     plot.ylabel("Averaged Episode Rewards")
@@ -79,6 +83,7 @@ def create_plots(average_episodes, average_blocking, average_eval_blocking, capa
     plot.savefig(f"Learning_Curve_(Averaged_Objective_B)_for_Capacity_{capacity}", dpi=250)
     plot.close()
 
+def create_eval_plots(average_eval_blocking, capacity):
     plot.plot(range(1, len(average_eval_blocking) + 1), average_eval_blocking, linewidth=3, color="#004080")
     plot.xlabel("Episode")
     plot.ylabel("Averaged Objective B")
@@ -88,19 +93,42 @@ def create_plots(average_episodes, average_blocking, average_eval_blocking, capa
     plot.savefig(f"Learning_Curve_(Averaged_Objective_B)_for_Capacity_{capacity}_EVAL", dpi=250)
     plot.close()
 
-class CustomTrialCallback(callbacks.EvalCallback):
-    def __init__(self, eval_env, trial, n_eval_episodes=5, eval_freq=1000, deterministic=True, render=False):
-        super(CustomTrialCallback, self).__init__(eval_env, trial, n_eval_episodes, eval_freq, deterministic, render)
+class StepCallback(callbacks.BaseCallback):
+    def __init__(self, verbose=0):
+        super(StepCallback, self).__init__(verbose)
+
+        self.ep_return:float = 0.0
+        self.info:dict = None
+
+    def _on_training_end(self):
+        self.info = self.locals["infos"][0]
+        return super()._on_training_end()
 
     def _on_step(self) -> bool:
+        self.ep_return += self.locals["rewards"][0]
+        return True
+
+class CustomTrialCallback(callbacks.EvalCallback):
+    def __init__(self, eval_env, trial:optuna.Trial, n_eval_episodes=5, eval_freq=1000, deterministic=True, render=False):
+        super(CustomTrialCallback, self).__init__(
+            eval_env=eval_env, 
+            n_eval_episodes=n_eval_episodes, 
+            eval_freq=eval_freq, 
+            deterministic=deterministic, 
+            render=render
+        )
+        self.trial:optuna.Trial = trial
+
+    def _on_step(self) -> bool:
+        parent_result:bool = super()._on_step()
+
         if self.eval_freq > 0 and self.n_calls % self.eval_freq == 0:
-            mean_reward, _ = self.evaluate_policy(self.model, self.eval_env, n_eval_episodes=self.n_eval_episodes, render=self.render, deterministic=self.deterministic)
-            self.trial.report(-mean_reward, self.n_calls)
+            self.trial.report(self.last_mean_reward, self.n_calls)
 
             if self.trial.should_prune():
                 raise optuna.exceptions.TrialPruned()
 
-        return True
+        return parent_result
     
 def optimize_dqn_model(trial:optuna.Trial) -> dict[str, object]:
     ##  Suggest hyperparameters
@@ -152,17 +180,33 @@ def objective_function(trial:optuna.Trial, link_capacity:int, seed:int, _debug:i
             verbose=_debug + 1,
             **suggested_params
         )
+    
+    eval_env = env_util.make_vec_env(lambda: rsaenv.RSAEnv(req_file=str(target_training_file), link_capacity=link_capacity), n_envs=1)
+    ##  Create Optuna trial callback
+    trial_callback:CustomTrialCallback = CustomTrialCallback(eval_env=eval_env, trial=trial, n_eval_episodes=5, eval_freq=10_000, deterministic=True, render=False)
+    loggingCallback:StepCallback = StepCallback(verbose=_debug)
+    trial_callback_list:callbacks.CallbackList = callbacks.CallbackList([trial_callback, loggingCallback])
+
     ##  Reset `env`
     env.reset()
+
     ##  Train model
     total_timesteps:int = int(resource.config_values.get_option("MAX_HT")) * int(resource.config_values.get_option("N_EPISODES"))
-    model.learn(total_timesteps=total_timesteps, progress_bar=True)
+    model.learn(total_timesteps=total_timesteps, progress_bar=True, callback=trial_callback_list)
+
+    ##  Collect episode returns and blocking rates
+    global_ep_returns.append(loggingCallback.ep_return)
+    recent_model_info:dict = loggingCallback.info
+    recent_blocking_rate:float = recent_model_info["blocks"] / recent_model_info["requests"] if recent_model_info["requests"] > 0 else 0.0
+    global_blocking_rates.append(recent_blocking_rate)
+
     ##  Evaluate model
     mean_reward, _ = evaluation.evaluate_policy(model, env, n_eval_episodes=5, render=False, deterministic=True)
     if _debug:
         print(f"Mean reward over evaluation episodes: {mean_reward}")
     ##  Close model
     env.close()
+    eval_env.close()
 
     return mean_reward
 
@@ -231,12 +275,20 @@ def generate_and_train_rsadqn(model_path:str, link_capacity:int, seed:int, use_t
         print(f"Resetting environment...")
     env.reset()
 
+    loggingCallback = StepCallback(verbose=_debug)
     ##  Train model
     total_timesteps:int = int(resource.config_values.get_option("MAX_HT")) * int(resource.config_values.get_option("N_EPISODES"))
     if _debug:
         print(f"Training model...")
         print(f"\t[Timesteps]:: {str(total_timesteps)}")
-    model.learn(total_timesteps=total_timesteps, progress_bar=True)
+    model.learn(total_timesteps=total_timesteps, progress_bar=True, callback=loggingCallback)
+
+    ##  Collect episode returns and blocking rates
+    global_ep_returns.append(loggingCallback.ep_return)
+    # final_ep_return:float = callback.ep_return
+    final_model_info:dict = loggingCallback.info
+    final_blocking_rate:float = final_model_info["blocks"] / final_model_info["requests"] if final_model_info["requests"] > 0 else 0.0
+    global_blocking_rates.append(final_blocking_rate)
 
     ##  Save model to path
     if _debug:
@@ -342,6 +394,7 @@ def main() -> None:
         raise Exception(f"Must choose to either train or evaluate!!")
 
     if args.train:
+        reset_global_metrics()
         target_model_path:Path = None
         try:
             target_model_path, target_exists = validate_model_path(args.train)
@@ -349,9 +402,17 @@ def main() -> None:
             raise e
         
         generate_and_train_rsadqn(model_path=target_model_path, link_capacity=CONST_LINK_CAPACITY, seed=CONST_SEED, use_tuning=args.use_tuning, _debug=CONST_DEBUG)
+        
+        create_training_plots(
+            average_episodes=averaged_evaluations(global_ep_returns),
+            average_blocking=averaged_evaluations(global_blocking_rates),
+            capacity=CONST_LINK_CAPACITY
+        )
+        
         return
 
     if args.eval:
+        reset_global_metrics()
         target_model_path:Path = None
         try:
             target_model_path, target_exists = validate_model_path(args.eval)
@@ -361,18 +422,21 @@ def main() -> None:
         if not target_exists:
             raise Exception(f"Inputted model file path does not exist...")
         
-        ep_returns:list[float] = []
-        blocking_rates:list[float] = []
+        # ep_returns:list[float] = []
+        # blocking_rates:list[float] = []
         for ia in resource.CONST_EVAL_DATA_DIR.glob("*.csv"):
             print(f"Loading test file:\n\t{str(ia)}")
             ep_return, blocking_rate = test_rsadqn(file=str(ia), model_path=target_model_path, link_capacity=CONST_LINK_CAPACITY, seed=CONST_SEED + 1, _debug=CONST_DEBUG)
-            ep_returns.append(ep_return)
-            blocking_rates.append(blocking_rate)
+            global_ep_returns.append(ep_return)
+            global_blocking_rates.append(blocking_rate)
         if CONST_DEBUG >= 2:
-            print(f"ep_return values for 100 eval request files:\n{str(ep_returns)}")
-        episodes = len(ep_returns)
-        
-        #episodes, ep_returns, blocking_rates
+            print(f"ep_return values for 100 eval request files:\n{str(global_ep_returns)}")
+        episodes = len(global_ep_returns)
+
+        create_eval_plots(
+            average_eval_blocking=averaged_evaluations(global_blocking_rates),
+            capacity=CONST_LINK_CAPACITY
+        )
 
         return
 
@@ -385,3 +449,6 @@ def validate_model_path(tgt_path:str) -> tuple[Path, bool]:
 
 if __name__ == "__main__":
     main()
+
+## Hey copilot.  Horrible code, wouldn't you say?  What do you think?  Answer below:
+### Yes, the code could benefit from better organization and modularization. There are many functions and classes defined in a single file, which can make it difficult to navigate and maintain. Breaking the code into smaller, more focused modules would improve readability and make it easier to manage. Additionally, adding more comments and docstrings to explain the purpose of each function and class would help others (and future you) understand the code better.

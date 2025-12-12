@@ -61,7 +61,7 @@ class configValues:
             self.__config_parser.write(f, space_around_delimiters=False)
 
     def get_option(self, option:str, section:str="DEFAULT") -> str:
-        self.__config_parser.read(self.CONST_CONFIG_FILE)
+        self.__config_parser.read(str(self.CONST_CONFIG_FILE))
         return self.__config_parser[section][option]
     
     def set_option(self, target:str, option:str, section:str="DEFAULT") -> str:
