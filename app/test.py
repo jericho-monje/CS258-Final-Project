@@ -40,7 +40,8 @@ def test_generate_paths_by_edge():
 def main() -> None:
     # test_csvLineReader()
     # test_nxGraphs()
-    test_generate_paths_by_edge()
+    # test_generate_paths_by_edge()
+    pass
 
 if __name__ == "__main__":
     main()

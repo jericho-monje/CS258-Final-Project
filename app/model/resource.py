@@ -5,14 +5,14 @@ from configparser import ConfigParser
 from pathlib import Path
 
 CONST_ROOT_DIR:Path = Path.absolute(Path(sys.argv[0]).parent)
-# CONST_OUTPUT_DIR:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r".\output"))
+# CONST_OUTPUT_DIR:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r"output"))
 # CONST_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-CONST_MODEL_DIR:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r".\model"))
+CONST_MODEL_DIR:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r"model"))
 
-CONST_EVAL_DATA_DIR:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\eval"))
-CONST_TRAIN_DATA_DIR:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r".\data\train"))
+CONST_EVAL_DATA_DIR:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r"data/eval"))
+CONST_TRAIN_DATA_DIR:Path = Path.absolute(Path.joinpath(CONST_MODEL_DIR, r"data/train"))
 
-# CONST_DQN_MODEL_PATH:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r".\dqn_rsaenv_model"))
+# CONST_DQN_MODEL_PATH:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r"dqn_rsaenv_model"))
 
 def generateTimestamp() -> str:
     result:str = datetime.now().strftime("%d%m%y-%H%M%S")
@@ -25,7 +25,7 @@ def random_training_file(seed:int) -> Path:
 
 class configValues:
     def __init__(self) -> None:
-        self.CONST_CONFIG_FILE:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r".\config.ini"))
+        self.CONST_CONFIG_FILE:Path = Path.absolute(Path.joinpath(CONST_ROOT_DIR, r"config.ini"))
         self.__config_parser:ConfigParser = ConfigParser()
 
         TMP_VALUES_:dict[str:dict[str:str]] = {
@@ -35,7 +35,7 @@ class configValues:
                 "LINK_CAPACITY" : "10",
                 "MODEL_POLICY" : "MultiInputPolicy",
                 "MAX_HT" : "100",
-                "MODEL_DEVICE" : "CPU",
+                "MODEL_DEVICE" : "cpu",
                 "OPTUNA_TRIALS" : "5"
             }
         }
@@ -62,7 +62,7 @@ class configValues:
 
     def get_option(self, option:str, section:str="DEFAULT") -> str:
         self.__config_parser.read(str(self.CONST_CONFIG_FILE))
-        return self.__config_parser[section][option]
+        return self.__config_parser[section][option].strip()
     
     def set_option(self, target:str, option:str, section:str="DEFAULT") -> str:
         self.__config_parser.set(section, option, str(target))

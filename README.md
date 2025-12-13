@@ -1,16 +1,43 @@
 # CS258-Final-Project
 
-python app\dqn_runner.py --debug=1 --train=app\dqn_rsaenv_model_cap20_tuned.zip --use_tuning --link_capacity=20
-python app\dqn_runner.py --debug=1 --eval=app\dqn_rsaenv_model_cap20_tuned.zip --link_capacity=20
-
-python app\dqn_runner.py --debug=1 --train=app\dqn_rsaenv_model_cap10_tuned.zip --use_tuning --link_capacity=10
-python app\dqn_runner.py --debug=1 --eval=app\dqn_rsaenv_model_cap10_tuned.zip --link_capacity=10
-
 ## How to Execute
+
+1) **Setup**
+    - Install the required Python libraries using the included `requirements.txt` file, optionally using an environment such as `venv` or `conda`.  
+    - Using the command line, navigate to the main project folder just above the `app` folder.
+    - You may choose to first run `python app/model/resource.py` to fully set up the configuation files.
+    - The resulting `app/config.ini` file allows the user to modify some running parameters.  Most of these do not need to be modified for general usage.
+2)  **Usage**
+    - `app/dqn_runner.py` hosts the main interface for usage via the command line.  
+        - To train a model, use the `--train` argument followed by the path to where the model should be stored.  Please include a `.zip` extension.  
+           - Use the `--use_tuning` flag to enable Optuna-based hyperparameter-tuning.  
+        - To evaluate a model, use the `--eval` argument followed by the path to where the model is stored. 
+        - Use the `--link_capacity` argument followed by an integer to set how many frequencies a single link should be able to serve.  
+            - *Warning:*  Users may find that the environment updates before the configuration does, resulting in an error regarding the Observation space's link capacity shape and the inputted one.  If this happens, simply repeat the command again.  
+
+3)  **Examples:**
+
+    - **Training for link capacity of 20 with tuning**
+        
+          python app/dqn_runner.py --train=app/dqn_rsaenv_model_cap20_tuned.zip --use_tuning --link_capacity=20
+
+    - **Evaluation for link capacity of 20**
+
+          python app/dqn_runner.py --eval=app/dqn_rsaenv_model_cap20_tuned.zip --link_capacity=20 
+
+
+## Requirements
+This code has been optimized for Windows computers, but is largely compatible with Linux computers as well.  
+
+A minimum of __Python v3__ is required.  The required "pip" libraries have been listed in `requirements.txt` as well.  
 
 ## Environment
 
 ### State Representation & State Transitions
+
+In our implementation, we used the generated `nx.Graph` as a topological map.  We did not directly store the states within each LinkState of this graph as we wanted to utilize the more efficient nature of numpy arrays.  The given graph is used to carry data such as action paths, number of links, and so on.  A corresponding `_linkstates` list contained `numpy.ndarray` objects that emulated the states of each link, along with their holding capacity.  Each slot held the holding-time of that particular request.  Slot occupation was assumed when a holding time is above 0.  
+
+The observation state is a dictionary that holds an exploded view of the aforementioned `_linkstates` list.  This showed the slots of each individual link as a multibinary array, forgoing the holding-time and simply showing occupation.  It also contained the details of the current request: source, destination, and holding-time.  
 
 ### Action Representation
 
@@ -66,7 +93,11 @@ The goal is to minimize the amount of blocking. As a result, a reward of `+1` is
 
 ### How We Trained the Agent
 
+Given 10,000 training files, we originally intended to train a singular model on multiple files at once.  However we decided against that and used a random file selection function based on the defined `seed` variable.  This was because we ended up relying on Hyperparam Tuning via Optuna and wanted to maintain a clean learning phase for the model.  The model learns over a number of timesteps that is a high multiple of the `max_ht` variable.
+
 ### Systematic Hyperparam Tuning
+
+Our implementation of Hyperparamter-Tuning utilized Optuna's trials via evaluation callbacks within `dqn_runner.py`  Although a simple implementation, it showed effective results in tuning hyperparameters such as the learning rate, gamma, tau, etc.  This was visualized in our graphs, showcasing the progressive learning curves of the model.  Our callback implementation relied on `stable_baselines3.common.callbacks.EvalCallback` and lets the Optuna `Trial` decide how to adjust the parameters upon each step.   The model is created using `optimize_dqn_model()` inside of `objective_function()`.  The learning is then facilitated by `optuna_study_rsadqn()`, which optimizes the hyperparameters over a number of trials we defaulted to 5.  
 
 ## Results
 
@@ -74,12 +105,12 @@ The goal is to minimize the amount of blocking. As a result, a reward of `+1` is
 
 ![](https://github.com/jericho-monje/CS258-Final-Project/raw/main/Learning_Curve_(Averaged_Episode_Rewards)_for_Capacity_20.png
 )
-Initially, the averaged episode rewards started at ~58000 and showed gradual growth. It eventually peaked by episode 4 at ~71000 averaged rewards. After this point, the averaged rewards starts to slowly decline. The reason for this curve is most likely because the agent quickly learns which actions to take early on, and then it rapidly starts to gain rewards. Then based on these rewards, the agent knows what actions to take and is less likely to explore for better actions. As it begins to stick with what it thinks is the best action rather than looking for a better action, the average rewards begins to decline.
+Initially, the averaged episode rewards started at ~58000 and showed gradual growth. It eventually peaked by episode 4 at ~71000 averaged rewards. After this point, the averaged rewards starts to slowly decline. The reason for this curve is most likely because the agent quickly learns which actions to take early on, and then it rapidly starts to gain rewards. Then based on these rewards, the agent knows what actions to take and is adapts more slowly to varying situations. As it begins to stick with what it thinks is the best action rather than looking for a better action, the average rewards can decline when encountering episodes with different needs.  This demonstrates the need for data curation/variety to combat "overfitting".
 
 ### Learning Curve (Averaged Objective *B* vs Episode) for Capacity=20
 
 ![](https://github.com/jericho-monje/CS258-Final-Project/raw/main/Learning_Curve_(Averaged_Objective_B)_for_Capacity_20.png)
-This plot correctly shows the inverse of the previous plot. As the agent is exploring for the best actions early on, the initial averaged objective *B* is very high at 0.21. Gradually the agent learns better actions to take and the average objective *B* declines to a minimum of ~0.145 by episode 4. From that point forward, the averaged objective *B* begins to increase again as the agent is no longer looking for better actions.
+This plot correctly shows the inverse of the previous plot. As the agent is exploring for the best actions early on, the initial averaged objective *B* is very high at 0.21. Gradually the agent learns better actions to take and the average objective *B* declines to a minimum of ~0.145 by episode 4. From that point forward, the averaged objective *B* begins to increase again as the agent is less likely to look for better actions.
 
 ### Averaged Objective *B* vs Episode on Eval Dataset for Capacity=20
 

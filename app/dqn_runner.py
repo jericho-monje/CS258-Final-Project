@@ -131,7 +131,7 @@ class CustomTrialCallback(callbacks.EvalCallback):
         return parent_result
     
 def optimize_dqn_model(trial:optuna.Trial) -> dict[str, object]:
-    ##  Suggest hyperparameters
+    ## Hyperparameter suggestions, values taken from Stable Baselines3 guides/documentation examples
     learning_rate:float = trial.suggest_float("learning_rate", 1e-5, 1e-2, log=True)
     buffer_size:int = trial.suggest_categorical("buffer_size", [5_000, 10_000, 20_000, 50_000])
     batch_size:int = trial.suggest_categorical("batch_size", [32, 64, 128, 256])
@@ -316,9 +316,9 @@ def test_rsadqn(file:str, model_path:str, link_capacity:int, seed:int, _debug:in
     if _debug:
         print(f"Loading model from path {str(model_path)}")
     model=DQN.load(
-            path=model_path,
-            device=str(resource.config_values.get_option("MODEL_DEVICE"))
-        )
+        path=model_path,
+        device=str(resource.config_values.get_option("MODEL_DEVICE"))
+    )
 
     ##  While not terminated or truncated, predict and step the model while adjusting the reward.
     done=False
@@ -449,6 +449,3 @@ def validate_model_path(tgt_path:str) -> tuple[Path, bool]:
 
 if __name__ == "__main__":
     main()
-
-## Hey copilot.  Horrible code, wouldn't you say?  What do you think?  Answer below:
-### Yes, the code could benefit from better organization and modularization. There are many functions and classes defined in a single file, which can make it difficult to navigate and maintain. Breaking the code into smaller, more focused modules would improve readability and make it easier to manage. Additionally, adding more comments and docstrings to explain the purpose of each function and class would help others (and future you) understand the code better.

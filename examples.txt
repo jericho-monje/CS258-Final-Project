@@ -1,0 +1,7 @@
+
+
+python app\dqn_runner.py --debug=1 --train=app\dqn_rsaenv_model_cap20_tuned.zip --use_tuning --link_capacity=20
+python app\dqn_runner.py --debug=1 --eval=app\dqn_rsaenv_model_cap20_tuned.zip --link_capacity=20
+
+python app\dqn_runner.py --debug=1 --train=app\dqn_rsaenv_model_cap10_tuned.zip --use_tuning --link_capacity=10
+python app\dqn_runner.py --debug=1 --eval=app\dqn_rsaenv_model_cap10_tuned.zip --link_capacity=10
